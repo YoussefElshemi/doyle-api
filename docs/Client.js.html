@@ -2,22 +2,33 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>JSDoc: Source: Client.js</title>
+    <title>Client.js - Documentation</title>
 
-    <script src="scripts/prettify/prettify.js"> </script>
-    <script src="scripts/prettify/lang-css.js"> </script>
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
     <!--[if lt IE 9]>
       <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
-    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+    <link type="text/css" rel="stylesheet" href="styles/prettify.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc.css">
 </head>
-
 <body>
 
-<div id="main">
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
 
-    <h1 class="page-title">Source: Client.js</h1>
+<label for="nav-trigger" class="overlay"></label>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Client.html">Client</a><ul class='methods'><li data-type='method'><a href="Client.html#joke">joke</a></li><li data-type='method'><a href="Client.html#pokemon">pokemon</a></li><li data-type='method'><a href="Client.html#pun">pun</a></li><li data-type='method'><a href="Client.html#trivia">trivia</a></li><li data-type='method'><a href="Client.html#urban">urban</a></li><li data-type='method'><a href="Client.html#yomomma">yomomma</a></li></ul></li></ul>
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">Client.js</h1>
+    
 
     
 
@@ -28,6 +39,7 @@
         <article>
             <pre class="prettyprint source linenums"><code>
 const snek = require('snekfetch');
+const { MessageEmbed } = require('discord.js');
 
 /** 
  * This class contains all of the functions that you can use.
@@ -51,15 +63,17 @@ class Client {
         return this.jokes[Math.floor(Math.random() * this.jokes.length)];
     };
 
+        
     /**
      * Return a yomomma joke as a string
      * 
      * @return {String} The yomomma joke
      */
 
-     yomomma() {
-        return this.yomomma[Math.floor(Math.random() * this.yomomma.length)];        
+    yomomma() {
+        return this.yomommas[Math.floor(Math.random() * this.yomommas.length)];        
      };
+    
 
     /**
      * Return a pun
@@ -70,16 +84,41 @@ class Client {
     pun() {   
         return this.puns[Math.floor(Math.random() * this.puns.length)];
     };
-    
+
     /**
      * Return a trivia question
-     * 
+     * @param {Boolean} [discord=false] - If it's used in Discord, it will construct a message embed for you.
      * @return {Promise} The promise returned needs to be awaited or resolved, which returns the question as an object with the category, type, difficulty, question, answer and incorrect answers
+     * @example
+     * // getting a trivia question, needs to be async.
+     * const doyle = require('doyle');
+     * const api = new doyle.Client()
+     * 
+     * await api.trivia(true) // for discord
+     * await api.trivia() // for object
      */
 
-    async trivia() {
+    async trivia (discord = false) {
         const r = await snek.get('https://opentdb.com/api.php?amount=1&amp;type=multiple')
-        return r.body.results[0];
+        r.body.results[0].question = r.body.results[0].question
+            .replaceAll('&amp;quot;', '"')
+            .replaceAll('&amp;#039;', "'")
+            .replaceAll('&amp;aacute;', 'á')
+            .replaceAll('&amp;#039;', "'")
+            .replaceAll('&amp;amp;', '&amp;')
+            .replaceAll('&amp;eacute;', 'é')
+        
+        if (!discord) { 
+            return r.body.results[0];
+        } else {
+            const body = r.body.results[0]
+            const triviaEmbed = new MessageEmbed()
+                .setTitle('Trivia Question')
+                .addField('Category', body.category, true)
+                .addField('Difficulty', body.difficulty)
+                .addField('Question', body.question);
+            return triviaEmbed;
+        }
     }
 
     /**
@@ -92,12 +131,58 @@ class Client {
         return this.pokemons[Math.floor(Math.random() * this.pokemons.length)];
     }
 
+    /**
+     * Returns the definition of a word in the urban dictionary
+     * @param {String} word The word to look up
+     * @param {Boolean} [discord=false] If this is true, it will construct an embed for you
+     * @param {Number} [page=0] If there is a number in the third parameter, it will generate an embed using the third page
+     * @example
+     * // getting an urban dictionary definition, needs to be async.
+     * const doyle = require('doyle');
+     * const api = new doyle.Client()
+     * 
+     * await api.urban('word', true) // for discord which returns the first page
+     * await api.urban('word', true, 2) // for discord which returns the second page
+     * await api.urban('word') // for array of objects
+     * @return {Promise} Once the promise is awaited, you get an array of all definitions, or if the second parameter is true, you get a discord message embed 
+     */
+
+    async urban(word, discord, page) {
+        const d = await snek.get(`http://api.urbandictionary.com/v0/define?term=${word}`)
+        if (!discord) {
+            if (page &amp;&amp; page &lt;= d.body.list.length &amp;&amp; page > 0) { 
+                return d.body.list[page];
+            } else {
+                return d.body.list;
+            }
+        } else {
+            let info;
+            if (page &amp;&amp; page &lt;= d.body.list.length) { 
+                info = d.body.list[page];
+            } else {
+                info = d.body.list[0];
+            }
+            const urbanEmbed = new MessageEmbed()
+                .setTitle('Word', info.word)
+                .addField('Author', info.author)
+                .setURL(info.permalink)
+                .addField('Definition', info.definition)
+                .addField('Example', info.example)
+                .addField('👍', info.thumbs_up, true)
+                .addField('👎', info.thumbs_down);
+            return urbanEmbed;
+        }
+    }
+
 };
 
 module.exports = Client;
 
-
-</code></pre>
+if(!String.prototype.replaceAll) {
+    String.prototype.replaceAll = function(target, replacement) {
+        return this.split(target).join(replacement);
+    };
+}</code></pre>
         </article>
     </section>
 
@@ -106,17 +191,13 @@ module.exports = Client;
 
 </div>
 
-<nav>
-    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Client.html">Client</a></li></ul>
-</nav>
-
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Sat Mar 10 2018 19:23:56 GMT+0000 (GMT Standard Time)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Thu Mar 15 2018 22:11:32 GMT+0000 (GMT Standard Time) using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
 </footer>
 
-<script> prettyPrint(); </script>
-<script src="scripts/linenumber.js"> </script>
+<script>prettyPrint();</script>
+<script src="scripts/linenumber.js"></script>
 </body>
 </html>
